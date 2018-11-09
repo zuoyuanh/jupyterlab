@@ -5,6 +5,8 @@ import { JupyterLab, JupyterLabPlugin } from '@jupyterlab/application';
 
 import { ICommandPalette, MainAreaWidget } from '@jupyterlab/apputils';
 
+import { ISettingRegistry } from '@jupyterlab/coreutils';
+
 import { ILauncher, LauncherModel, Launcher } from '@jupyterlab/launcher';
 
 import { toArray } from '@phosphor/algorithm';
@@ -28,7 +30,7 @@ namespace CommandIDs {
 const plugin: JupyterLabPlugin<ILauncher> = {
   activate,
   id: '@jupyterlab/launcher-extension:plugin',
-  requires: [ICommandPalette],
+  requires: [ICommandPalette, ISettingRegistry],
   provides: ILauncher,
   autoStart: true
 };
@@ -41,9 +43,25 @@ export default plugin;
 /**
  * Activate the launcher.
  */
-function activate(app: JupyterLab, palette: ICommandPalette): ILauncher {
+function activate(
+  app: JupyterLab,
+  palette: ICommandPalette,
+  settingRegistry: ISettingRegistry
+): ILauncher {
   const { commands, shell } = app;
   const model = new LauncherModel();
+
+  Promise.all([settingRegistry.load(plugin.id), app.restored]).then(
+    ([settings]) => {
+      let usageData = settings.get('usage-data').composite || {};
+      model.fromJSON(usageData);
+      settings.changed.connect(settings => {
+        usageData = settings.get('usage-data').composite || {};
+        model.fromJSON(usageData);
+        // handleLayoutOverrides();
+      });
+    }
+  );
 
   commands.addCommand(CommandIDs.create, {
     label: 'New Launcher',
@@ -56,6 +74,7 @@ function activate(app: JupyterLab, palette: ICommandPalette): ILauncher {
       const launcher = new Launcher({ cwd, callback, commands });
 
       launcher.model = model;
+      launcher.model.setSettingRegistey(settingRegistry);
       launcher.title.label = 'Launcher';
       launcher.title.iconClass = 'jp-LauncherIcon';
 

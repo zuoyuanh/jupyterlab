@@ -18,7 +18,12 @@ import {
 
 import { CommandRegistry } from '@phosphor/commands';
 
-import { Token, ReadonlyJSONObject } from '@phosphor/coreutils';
+import {
+  Token,
+  ReadonlyJSONObject,
+  JSONValue,
+  JSONObject
+} from '@phosphor/coreutils';
 
 import { DisposableDelegate, IDisposable } from '@phosphor/disposable';
 
@@ -29,6 +34,8 @@ import { Widget } from '@phosphor/widgets';
 import * as React from 'react';
 
 import '../style/index.css';
+
+import { ISettingRegistry } from '@jupyterlab/coreutils';
 
 /**
  * The class name added to Launcher instances.
@@ -71,6 +78,22 @@ export interface ILauncher {
 }
 
 /**
+ * IUsageData records the count of usage and the most recent date of usage
+ * for a certain kernel or card.
+ */
+interface IUsageData {
+  /**
+   * Count the number that a certain card is used.
+   */
+  usageCount: number;
+
+  /**
+   * The most recent timestamp a certain card is used.
+   */
+  mostRecentUsage: string;
+}
+
+/**
  * LauncherModel keeps track of the path to working directory and has a list of
  * LauncherItems, which the Launcher will render.
  */
@@ -94,7 +117,7 @@ export class LauncherModel extends VDomModel implements ILauncher {
    */
   add(options: ILauncher.IItemOptions): IDisposable {
     // Create a copy of the options to circumvent mutations to the original.
-    let item = Private.createItem(options);
+    let item = Private.createItem(options, this, this._launcher);
 
     this._items.push(item);
     this.stateChanged.emit(void 0);
@@ -105,6 +128,62 @@ export class LauncherModel extends VDomModel implements ILauncher {
     });
   }
 
+  fromJSON(data: JSONValue) {
+    let dataObject = JSON.parse(data as string) as JSONObject;
+    for (let key in dataObject) {
+      let entry = dataObject[key] as JSONObject;
+      this._usageData[key] = {
+        usageCount: entry['usageCount'] as number,
+        mostRecentUsage: entry['mostRecentUsage'] as string
+      };
+    }
+  }
+
+  getItemRank(item: ILauncher.IItemOptions): number {
+    let cwd = '';
+    if (this._launcher) {
+      cwd = this._launcher.cwd;
+    }
+    let kernelId =
+      Private.getKernelName(item) + (cwd.length > 0 ? '-' + cwd : '');
+    let count = 0;
+    if (this._usageData[kernelId]) {
+      count = this._usageData[kernelId].usageCount;
+    }
+    if (count != 0) {
+      return 99999999 - count;
+    }
+    return 99999999 + (item.rank !== undefined ? item.rank : Infinity);
+  }
+
+  useCard(id: string) {
+    if (id in this._usageData) {
+      this._usageData[id] = {
+        usageCount: this._usageData[id].usageCount + 1,
+        mostRecentUsage: new Date().toString()
+      };
+    } else {
+      this._usageData[id] = {
+        usageCount: 1,
+        mostRecentUsage: new Date().toString()
+      };
+    }
+
+    let extensionId = '@jupyterlab/launcher-extension:plugin';
+    let key = 'usage-data';
+    this._settingRegistry
+      .set(extensionId, key, JSON.stringify(this._usageData))
+      .catch((reason: Error) => {
+        console.error(
+          `Failed to set ${extensionId}:${key} - ${reason.message}`
+        );
+      });
+  }
+
+  setSettingRegistey(settingsRegistry: ISettingRegistry) {
+    this._settingRegistry = settingsRegistry;
+  }
+
   /**
    * Return an iterator of launcher items.
    */
@@ -112,7 +191,14 @@ export class LauncherModel extends VDomModel implements ILauncher {
     return new ArrayIterator(this._items);
   }
 
+  set launcher(launcher: Launcher) {
+    this._launcher = launcher;
+  }
+
   private _items: ILauncher.IItemOptions[] = [];
+  private _usageData: { [name: string]: IUsageData } = {};
+  private _settingRegistry: ISettingRegistry = null;
+  private _launcher: Launcher = null;
 }
 
 /**
@@ -164,6 +250,7 @@ export class Launcher extends VDomRenderer<LauncherModel> {
     let categories = Object.create(null);
     each(this.model.items(), (item, index) => {
       let cat = item.category || 'Other';
+      item.rank = this.model.getItemRank(item);
       if (!(cat in categories)) {
         categories[cat] = [];
       }
@@ -364,6 +451,12 @@ function Card(
       return;
     }
     launcher.pending = true;
+
+    let kernelId =
+      Private.getKernelName(item) +
+      (launcher.cwd.length > 0 ? '-' + launcher.cwd : '');
+    launcher.model.useCard(kernelId);
+
     commands
       .execute(command, {
         ...item.args,
@@ -443,12 +536,14 @@ namespace Private {
    * Create a fully specified item given item options.
    */
   export function createItem(
-    options: ILauncher.IItemOptions
+    options: ILauncher.IItemOptions,
+    model: LauncherModel,
+    launcher: Launcher
   ): ILauncher.IItemOptions {
     return {
       ...options,
       category: options.category || '',
-      rank: options.rank !== undefined ? options.rank : Infinity
+      rank: model.getItemRank(options)
     };
   }
 
@@ -472,5 +567,23 @@ namespace Private {
     const aLabel = commands.label(a.command, { ...a.args, cwd });
     const bLabel = commands.label(b.command, { ...b.args, cwd });
     return aLabel.localeCompare(bLabel);
+  }
+
+  export function getKernelName(item: ILauncher.IItemOptions): string {
+    if (item.args) {
+      if (item.args['kernelName']) {
+        return item.args['kernelName'].toString();
+      } else {
+        if (item.args['kernelPreference']) {
+          if ((item.args['kernelPreference'] as JSONObject)['name']) {
+            return (item.args['kernelPreference'] as JSONObject)[
+              'name'
+            ].toString();
+          }
+        }
+      }
+    } else {
+      return item.command;
+    }
   }
 }
