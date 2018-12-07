@@ -1,0 +1,13 @@
+{
+  "jupyter.lab.setting-icon-class": "jp-FileIcon",
+  "jupyter.lab.setting-icon-label": "Kernel Orderr",
+  "title": "Kernel Order",
+  "description": "Kernel order settings.",
+  "properties": {
+    "usage-data": {
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "type": "object"
+}

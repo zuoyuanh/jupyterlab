@@ -8,8 +8,8 @@
 :root {
   --jp-private-launcher-top-padding: 16px;
   --jp-private-launcher-side-padding: 32px;
-  --jp-private-launcher-card-size: 100px;
-  --jp-private-launcher-card-label-height: 25px;
+  --jp-private-launcher-card-size: 150px;
+  --jp-private-launcher-card-label-height: 15px;
   --jp-private-launcher-card-icon-height: 75px;
   --jp-private-launcher-large-icon-size: 52px;
   --jp-private-launcher-small-icon-size: 32px;
@@ -91,6 +91,17 @@
   box-sizing: border-box;
 }
 
+.jp-Launcher-option-button {
+  width: fit-content;
+  display: inline-flex;
+  margin-right: 3px;
+  margin-left: 3px;
+  border: 1px solid rgb(161, 161, 161);
+  color: rgb(0, 132, 255);
+  font-size: 11px;
+  padding: 2px;
+}
+
 /* Launcher cards */
 
 .jp-Launcher-cardContainer {
@@ -104,17 +115,17 @@
 
 .jp-LauncherCard {
   display: flex;
+  position: relative;
   flex-direction: column;
-  cursor: pointer;
   width: var(--jp-private-launcher-card-size);
   height: var(--jp-private-launcher-card-size);
   margin: 8px;
   padding: 0px;
   border: 1px solid var(--jp-border-color1);
   background: var(--jp-layout-color1);
-  box-shadow: var(--jp-elevation-z2);
   transition: 0.2s box-shadow;
   border-radius: var(--jp-border-radius);
+  align-items: center;
 }
 
 .jp-LauncherCard:hover {
@@ -149,15 +160,12 @@
 
 .jp-LauncherCard-label {
   width: 100%;
-  height: var(--jp-private-launcher-card-label-height);
   line-height: var(--jp-private-launcher-card-label-height);
   font-size: var(--jp-ui-font-size1);
   padding: 0 8px;
   color: var(--jp-ui-font-color1);
   box-sizing: border-box;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   text-align: center;
 }
 
@@ -178,4 +186,31 @@
   height: var(--jp-private-launcher-large-icon-size);
   margin: 0px;
   padding: 0px;
+}
+
+.jp-Launcher-table {
+  margin: 1em;
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-Launcher-table-header {
+  border-bottom: 1px solid rgb(238, 238, 238);
+}
+
+.jp-Launcher-table-header,
+.jp-Launcher-table-row {
+  display: flex;
+}
+
+.jp-Launcher-table-header,
+.jp-Launcher-table-row div {
+  flex: 1;
+  padding: 0.2rem 0.4em;
+}
+
+.jp-LauncherCard-options {
+  margin-bottom: 10px;
+  position: absolute;
+  bottom: 0px;
 }
