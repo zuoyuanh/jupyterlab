@@ -115,7 +115,7 @@ export class LauncherModel extends VDomModel implements ILauncher {
    *
    */
   add(options: ILauncher.IItemOptions): IDisposable {
-    // Create a copy of the options to circumvent mutations to the original.
+    // Create a copy of the options tfo circumvent mutations to the original.
     let item = {
       ...options,
       category: options.category || '',
@@ -132,8 +132,7 @@ export class LauncherModel extends VDomModel implements ILauncher {
         args: item.args,
         category: item.category,
         rank: item.rank,
-        kernelIconUrl: item.kernelIconUrl,
-        usageCount: this.getUsageCount(options)
+        kernelIconUrl: item.kernelIconUrl
       });
     } else {
       match.options.push(item.category);
@@ -156,20 +155,44 @@ export class LauncherModel extends VDomModel implements ILauncher {
         mostRecentUsage: entry['mostRecentUsage'] as string
       };
     }
+
+    for (let i = 0; i < this._items.length; i++) {
+      this._items[i] = {
+        ...this._items[i],
+        usageCount: this.getUsageCount(this._items[i]),
+        mostRecentUsage: this.getMostRecentUsage(this._items[i]).split('(')[0]
+      };
+    }
   }
 
-  getUsageCount(item: ILauncher.IItemOptions): number {
+  getUsageCount(item: ILauncher.IGroupedItemOptions): number {
     let cwd = '';
     if (this._launcher) {
       cwd = this._launcher.cwd;
     }
     let kernelId =
-      Private.getKernelName(item) + (cwd.length > 0 ? '-' + cwd : '');
+      Private.getKernelNameForGroupedItem(item) +
+      (cwd.length > 0 ? '-' + cwd : '');
     let count = 0;
     if (this._usageData[kernelId]) {
       count = this._usageData[kernelId].usageCount;
     }
     return count;
+  }
+
+  getMostRecentUsage(item: ILauncher.IGroupedItemOptions): string {
+    let cwd = '';
+    if (this._launcher) {
+      cwd = this._launcher.cwd;
+    }
+    let kernelId =
+      Private.getKernelNameForGroupedItem(item) +
+      (cwd.length > 0 ? '-' + cwd : '');
+    let mostRecentUsage = '';
+    if (this._usageData[kernelId]) {
+      mostRecentUsage = this._usageData[kernelId].mostRecentUsage;
+    }
+    return mostRecentUsage;
   }
 
   useCard(id: string) {
@@ -251,11 +274,13 @@ export class LauncherModel extends VDomModel implements ILauncher {
   }
 
   sortedItemsByUsage() {
-    return this._items.sort(
+    this._items.sort(
       (a: ILauncher.IGroupedItemOptions, b: ILauncher.IGroupedItemOptions) => {
         return b.usageCount - a.usageCount;
       }
     );
+    // console.log(this._items);
+    return this._items;
   }
 
   private _items: ILauncher.IGroupedItemOptions[] = [];
@@ -356,33 +381,34 @@ export class Launcher extends VDomRenderer<LauncherModel> {
     }
 
     let orderedItems = this.model.sortedItemsByUsage();
+    console.log(orderedItems);
     let i = 0;
+    let cnt = 0;
     let topUsed: ILauncher.IGroupedItemOptions[] = [];
-    while (i < 4) {
-      if (orderedItems[i].category === 'Other') {
+    while (cnt < 4 && i < orderedItems.length) {
+      i++;
+      console.log(orderedItems[i]);
+      if (orderedItems[i] && orderedItems[i].category === 'Other') {
         continue;
       }
       topUsed.push(orderedItems[i]);
-      i++;
+      cnt++;
     }
 
     // Render the most used items
-    /* if (this._renderTable) { 
+    if (this._renderTable) {
       section = (
         <div className="jp-Launcher-section" key="most-used">
-          <div className="jp-Launcher-sectionHeader">
-            <h2 className="jp-Launcher-sectionTitle">Most used</h2>
-          </div>
           <div className="jp-Launcher-table">
             <div className="jp-Launcher-table-header jp-Launcher-table-row">
-              <div>Launch</div>
+              <div>Most Used</div>
               <div>Name</div>
-              <div>Last Used</div>    
+              <div>Last Used</div>
             </div>
             {toArray(
-              map(topUsed.splice(0, 3), (item: ILauncher.IGroupedItemOptions) => {
+              map(topUsed, (item: ILauncher.IGroupedItemOptions) => {
                 return Card(
-                  false,
+                  true,
                   item,
                   this,
                   this._commands,
@@ -404,7 +430,7 @@ export class Launcher extends VDomRenderer<LauncherModel> {
             {toArray(
               map(topUsed, (item: ILauncher.IGroupedItemOptions) => {
                 return Card(
-                  false,
+                  true,
                   item,
                   this,
                   this._commands,
@@ -417,7 +443,7 @@ export class Launcher extends VDomRenderer<LauncherModel> {
         </div>
       );
     }
-    sections.push(section); */
+    sections.push(section);
 
     // Now create the sections for each category
     orderedCategories.forEach(cat => {
@@ -486,6 +512,16 @@ export class Launcher extends VDomRenderer<LauncherModel> {
     // Wrap the sections in body and content divs.
     return (
       <div className="jp-Launcher-body">
+        {/* <div className="jp-Launcher-toolbar">
+          <button onClick={(() => {
+            this._renderTable = false;
+            this.update();
+          })}>Card View</button>
+          <button onClick={(() => {
+            this._renderTable = true;
+            this.update();
+          })}>Table View</button>
+        </div> */}
         <div className="jp-Launcher-content">
           <div className="jp-Launcher-cwd">
             <h3>{this.cwd}</h3>
@@ -650,6 +686,8 @@ export namespace ILauncher {
      * spec.
      */
     kernelIconUrl?: string;
+
+    mostRecentUsage?: string;
   }
 }
 
@@ -678,6 +716,7 @@ function Card(
   const command = item.commands[item.options[0]];
   const args = { ...item.args, cwd: launcher.cwd };
   const label = commands.label(command, args);
+  const recentUsage = kernel ? item.mostRecentUsage : '';
 
   // Build the onclick handler.
   let onclickFactory = (currentCommand: string) => {
@@ -687,10 +726,26 @@ function Card(
       if (launcher.pending === true) {
         return;
       }
+
       launcher.pending = true;
+      let kernelId =
+        Private.getKernelName(item) +
+        (launcher.cwd.length > 0 ? '-' + launcher.cwd : '');
+      launcher.model.useCard(kernelId);
+
+      let kernelName = '';
+      if (item.args && item.args['kernelName'] != null) {
+        kernelName = item.args['kernelName'].toString();
+      } else if (item.args && item.args['kernelPreference'] != null) {
+        kernelName = (item.args['kernelPreference'] as JSONObject)[
+          'name'
+        ].toString();
+      }
+
       commands
         .execute(currentCommand, {
           ...item.args,
+          kernelName: kernelName,
           cwd: launcher.cwd
         })
         .then(value => {
@@ -716,7 +771,9 @@ function Card(
           className="jp-Launcher-option-button"
           onClick={onclickFactory(item.commands[option])}
         >
-          {(option === 'Other' ? 'Open' : option).toUpperCase()}
+          <span className="jp-Launcher-option-button-text">
+            {(option === 'Other' ? 'Open' : option).toUpperCase()}
+          </span>
         </div>
       );
     });
@@ -729,7 +786,7 @@ function Card(
       <div className="jp-Launcher-table-row">
         <div>{getOptions()}</div>
         <div>{label}</div>
-        <div>{launcher.cwd}</div>
+        <div>{recentUsage}</div>
       </div>
     );
   }
@@ -789,7 +846,25 @@ namespace Private {
     create: () => id++
   });
 
-  export function getKernelName(item: ILauncher.IItemOptions): string {
+  export function getKernelName(item: ILauncher.IGroupedItemOptions): string {
+    if (item.args) {
+      if (item.args['kernelName']) {
+        return item.args['kernelName'].toString();
+      } else {
+        if (item.args['kernelPreference']) {
+          if ((item.args['kernelPreference'] as JSONObject)['name']) {
+            return (item.args['kernelPreference'] as JSONObject)[
+              'name'
+            ].toString();
+          }
+        }
+      }
+    } else {
+      return item.commands[0];
+    }
+  }
+
+  export function getKernelNameForItem(item: ILauncher.IItemOptions): string {
     if (item.args) {
       if (item.args['kernelName']) {
         return item.args['kernelName'].toString();
@@ -804,6 +879,26 @@ namespace Private {
       }
     } else {
       return item.command;
+    }
+  }
+
+  export function getKernelNameForGroupedItem(
+    item: ILauncher.IGroupedItemOptions
+  ): string {
+    if (item.args) {
+      if (item.args['kernelName']) {
+        return item.args['kernelName'].toString();
+      } else {
+        if (item.args['kernelPreference']) {
+          if ((item.args['kernelPreference'] as JSONObject)['name']) {
+            return (item.args['kernelPreference'] as JSONObject)[
+              'name'
+            ].toString();
+          }
+        }
+      }
+    } else {
+      return item.commands[0];
     }
   }
 

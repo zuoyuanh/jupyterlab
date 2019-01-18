@@ -51,7 +51,7 @@ function activate(
   const { commands, shell } = app;
   const model = new LauncherModel();
 
-  /* Promise.all([settingRegistry.load(plugin.id), app.restored]).then(
+  Promise.all([settingRegistry.load(plugin.id), app.restored]).then(
     ([settings]) => {
       let usageData = settings.get('usage-data').composite || {};
       model.fromJSON(usageData);
@@ -60,7 +60,7 @@ function activate(
         model.fromJSON(usageData);
       });
     }
-  ); */
+  );
 
   commands.addCommand(CommandIDs.create, {
     label: 'New Launcher',
@@ -73,7 +73,7 @@ function activate(
       const launcher = new Launcher({ cwd, callback, commands });
 
       launcher.model = model;
-      // launcher.model.setSettingRegistey(settingRegistry);
+      launcher.model.setSettingRegistey(settingRegistry);
       launcher.title.label = 'Launcher';
       launcher.title.iconClass = 'jp-LauncherIcon';
 
