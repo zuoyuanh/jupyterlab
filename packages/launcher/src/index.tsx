@@ -279,7 +279,6 @@ export class LauncherModel extends VDomModel implements ILauncher {
         return b.usageCount - a.usageCount;
       }
     );
-    // console.log(this._items);
     return this._items;
   }
 
@@ -381,132 +380,62 @@ export class Launcher extends VDomRenderer<LauncherModel> {
     }
 
     let orderedItems = this.model.sortedItemsByUsage();
-    console.log(orderedItems);
     let i = 0;
     let cnt = 0;
     let topUsed: ILauncher.IGroupedItemOptions[] = [];
     while (cnt < 4 && i < orderedItems.length) {
+      let item = orderedItems[i];
       i++;
-      console.log(orderedItems[i]);
-      if (orderedItems[i] && orderedItems[i].category === 'Other') {
+      if (!item || (item && item.category === 'Other')) {
         continue;
       }
-      topUsed.push(orderedItems[i]);
+      topUsed.push(item);
       cnt++;
     }
 
     // Render the most used items
-    if (this._renderTable) {
-      section = (
-        <div className="jp-Launcher-section" key="most-used">
-          <div className="jp-Launcher-table">
-            <div className="jp-Launcher-table-header jp-Launcher-table-row">
-              <div>Most Used</div>
-              <div>Name</div>
-              <div>Last Used</div>
-            </div>
-            {toArray(
-              map(topUsed, (item: ILauncher.IGroupedItemOptions) => {
-                return Card(
-                  true,
-                  item,
-                  this,
-                  this._commands,
-                  this._callback,
-                  this._renderTable
-                );
-              })
-            )}
-          </div>
+    section = (
+      <div className="jp-Launcher-section" key="most-used">
+        <div className="jp-Launcher-sectionHeader">
+          <h2 className="jp-Launcher-sectionTitle">Most used</h2>
         </div>
-      );
-    } else {
-      section = (
-        <div className="jp-Launcher-section" key="most-used">
-          <div className="jp-Launcher-sectionHeader">
-            <h2 className="jp-Launcher-sectionTitle">Most used</h2>
-          </div>
-          <div className="jp-Launcher-cardContainer">
-            {toArray(
-              map(topUsed, (item: ILauncher.IGroupedItemOptions) => {
-                return Card(
-                  true,
-                  item,
-                  this,
-                  this._commands,
-                  this._callback,
-                  this._renderTable
-                );
-              })
-            )}
-          </div>
+        <div className="jp-Launcher-cardContainer">
+          {toArray(
+            map(topUsed, (item: ILauncher.IGroupedItemOptions) => {
+              return Card(true, item, this, this._commands, this._callback);
+            })
+          )}
         </div>
-      );
-    }
+      </div>
+    );
     sections.push(section);
 
     // Now create the sections for each category
     orderedCategories.forEach(cat => {
       let kernel = cat == 'Environment';
       if (cat in tableCategories) {
-        if (this._renderTable) {
-          section = (
-            <div className="jp-Launcher-section" key={cat}>
-              <div className="jp-Launcher-sectionHeader">
-                <h2 className="jp-Launcher-sectionTitle">{cat}</h2>
-              </div>
-              <div className="jp-Launcher-table">
-                <div className="jp-Launcher-table-header jp-Launcher-table-row">
-                  <div>Launch</div>
-                  <div>Name</div>
-                  <div>Last Used</div>
-                </div>
-                {toArray(
-                  map(
-                    categories[cat],
-                    (item: ILauncher.IGroupedItemOptions) => {
-                      return Card(
-                        kernel,
-                        item,
-                        this,
-                        this._commands,
-                        this._callback,
-                        this._renderTable
-                      );
-                    }
-                  )
-                )}
-              </div>
+        section = (
+          <div className="jp-Launcher-section" key={cat}>
+            <div className="jp-Launcher-sectionHeader">
+              <h2 className="jp-Launcher-sectionTitle">{cat}</h2>
             </div>
-          );
-        } else {
-          section = (
-            <div className="jp-Launcher-section" key={cat}>
-              <div className="jp-Launcher-sectionHeader">
-                <h2 className="jp-Launcher-sectionTitle">{cat}</h2>
-              </div>
-              <div className="jp-Launcher-cardContainer">
-                {toArray(
-                  map(
-                    categories[cat],
-                    (item: ILauncher.IGroupedItemOptions) => {
-                      return Card(
-                        kernel,
-                        item,
-                        this,
-                        this._commands,
-                        this._callback,
-                        this._renderTable
-                      );
-                    }
-                  )
-                )}
-              </div>
+            <div className="jp-Launcher-cardContainer">
+              {toArray(
+                map(categories[cat], (item: ILauncher.IGroupedItemOptions) => {
+                  return Card(
+                    kernel,
+                    item,
+                    this,
+                    this._commands,
+                    this._callback
+                  );
+                })
+              )}
             </div>
-          );
-        }
-        sections.push(section);
+          </div>
+        );
       }
+      sections.push(section);
     });
 
     // Wrap the sections in body and content divs.
@@ -536,7 +465,6 @@ export class Launcher extends VDomRenderer<LauncherModel> {
   private _callback: (widget: Widget) => void;
   private _pending = false;
   private _cwd = '';
-  private _renderTable = false;
 }
 
 /**
@@ -709,14 +637,12 @@ function Card(
   item: ILauncher.IGroupedItemOptions,
   launcher: Launcher,
   commands: CommandRegistry,
-  launcherCallback: (widget: Widget) => void,
-  renderRow: boolean
+  launcherCallback: (widget: Widget) => void
 ): React.ReactElement<any> {
   // Get some properties of the command
   const command = item.commands[item.options[0]];
   const args = { ...item.args, cwd: launcher.cwd };
   const label = commands.label(command, args);
-  const recentUsage = kernel ? item.mostRecentUsage : '';
 
   // Build the onclick handler.
   let onclickFactory = (currentCommand: string) => {
@@ -781,15 +707,6 @@ function Card(
   };
 
   // Return the VDOM element.
-  if (renderRow) {
-    return (
-      <div className="jp-Launcher-table-row">
-        <div>{getOptions()}</div>
-        <div>{label}</div>
-        <div>{recentUsage}</div>
-      </div>
-    );
-  }
   return (
     <div
       className="jp-LauncherCard"
