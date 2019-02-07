@@ -340,10 +340,22 @@ export class Launcher extends VDomRenderer<LauncherModel> {
     });
     each(this.model.items(), (item, index) => {
       let cat = item.category || 'Other';
-      if (cat == 'Other') {
-        categories['Other'].push(item);
-      } else {
-        categories['Environment'].push(item);
+      let displayName = Private.getDisplayName(
+        item,
+        this._commands,
+        this
+      ).toLocaleLowerCase();
+      if (
+        this._searchInput === null ||
+        this._searchInput.length == 0 ||
+        (displayName &&
+          displayName.indexOf(this._searchInput.toLocaleLowerCase()) >= 0)
+      ) {
+        if (cat == 'Other') {
+          categories['Other'].push(item);
+        } else {
+          categories['Environment'].push(item);
+        }
       }
     });
     // Within each category sort by rank
@@ -394,26 +406,32 @@ export class Launcher extends VDomRenderer<LauncherModel> {
     }
 
     // Render the most used items
-    section = (
-      <div className="jp-Launcher-section" key="most-used">
-        <div className="jp-Launcher-sectionHeader">
-          <h2 className="jp-Launcher-sectionTitle">Most used</h2>
+    if (this._searchInput === null || this._searchInput.length <= 0) {
+      section = (
+        <div className="jp-Launcher-section" key="most-used">
+          <div className="jp-Launcher-sectionHeader">
+            <h2 className="jp-Launcher-sectionTitle">Most used</h2>
+          </div>
+          <div className="jp-Launcher-cardContainer">
+            {toArray(
+              map(topUsed, (item: ILauncher.IGroupedItemOptions) => {
+                return Card(true, item, this, this._commands, this._callback);
+              })
+            )}
+          </div>
         </div>
-        <div className="jp-Launcher-cardContainer">
-          {toArray(
-            map(topUsed, (item: ILauncher.IGroupedItemOptions) => {
-              return Card(true, item, this, this._commands, this._callback);
-            })
-          )}
-        </div>
-      </div>
-    );
-    sections.push(section);
+      );
+      sections.push(section);
+    }
 
     // Now create the sections for each category
     orderedCategories.forEach(cat => {
       let kernel = cat == 'Environment';
-      if (cat in tableCategories) {
+      if (
+        cat in tableCategories &&
+        categories[cat] &&
+        categories[cat].length > 0
+      ) {
         section = (
           <div className="jp-Launcher-section" key={cat}>
             <div className="jp-Launcher-sectionHeader">
@@ -435,22 +453,27 @@ export class Launcher extends VDomRenderer<LauncherModel> {
           </div>
         );
       }
-      sections.push(section);
+      if (categories[cat] && categories[cat].length > 0) {
+        sections.push(section);
+      }
     });
 
     // Wrap the sections in body and content divs.
     return (
       <div className="jp-Launcher-body">
-        {/* <div className="jp-Launcher-toolbar">
-          <button onClick={(() => {
-            this._renderTable = false;
-            this.update();
-          })}>Card View</button>
-          <button onClick={(() => {
-            this._renderTable = true;
-            this.update();
-          })}>Table View</button>
-        </div> */}
+        <div className="jp-Launcher-toolbar">
+          <div className="jp-Launcher-search-div">
+            <input
+              className="jp-Launcher-search-input"
+              spellCheck={false}
+              placeholder="SEARCH"
+              onChange={event => {
+                this._searchInput = event.target.value;
+                this.update();
+              }}
+            />
+          </div>
+        </div>
         <div className="jp-Launcher-content">
           <div className="jp-Launcher-cwd">
             <h3>{this.cwd}</h3>
@@ -465,6 +488,7 @@ export class Launcher extends VDomRenderer<LauncherModel> {
   private _callback: (widget: Widget) => void;
   private _pending = false;
   private _cwd = '';
+  private _searchInput = '';
 }
 
 /**
@@ -762,6 +786,17 @@ namespace Private {
     name: 'key',
     create: () => id++
   });
+
+  export function getDisplayName(
+    item: ILauncher.IGroupedItemOptions,
+    commands: CommandRegistry,
+    launcher: Launcher
+  ): string {
+    const command = item.commands[item.options[0]];
+    const args = { ...item.args, cwd: launcher.cwd };
+    const label = commands.label(command, args);
+    return label;
+  }
 
   export function getKernelName(item: ILauncher.IGroupedItemOptions): string {
     if (item.args) {
