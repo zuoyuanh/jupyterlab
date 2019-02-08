@@ -5,6 +5,7 @@ import { IClientSession } from '@jupyterlab/apputils';
 
 import {
   Cell,
+  CellDragUtils,
   CellModel,
   CodeCell,
   CodeCellModel,
@@ -27,13 +28,15 @@ import { KernelMessage } from '@jupyterlab/services';
 
 import { each } from '@phosphor/algorithm';
 
+import { MimeData } from '@phosphor/coreutils';
+
+import { Drag } from '@phosphor/dragdrop';
+
 import { Message } from '@phosphor/messaging';
 
 import { ISignal, Signal } from '@phosphor/signaling';
 
 import { Panel, PanelLayout, Widget } from '@phosphor/widgets';
-
-import { ForeignHandler } from './foreign';
 
 import { ConsoleHistory, IConsoleHistory } from './history';
 
@@ -53,14 +56,14 @@ const CODE_RUNNER = 'jpCodeRunner';
 const CONSOLE_CLASS = 'jp-CodeConsole';
 
 /**
+ * The class added to console cells
+ */
+const CONSOLE_CELL_CLASS = 'jp-Console-cell';
+
+/**
  * The class name added to the console banner.
  */
 const BANNER_CLASS = 'jp-CodeConsole-banner';
-
-/**
- * The class name of a cell whose input originated from a foreign session.
- */
-const FOREIGN_CELL_CLASS = 'jp-CodeConsole-foreignCell';
 
 /**
  * The class name of the active prompt cell.
@@ -81,6 +84,11 @@ const INPUT_CLASS = 'jp-CodeConsole-input';
  * The timeout in ms for execution requests to the kernel.
  */
 const EXECUTION_TIMEOUT = 250;
+
+/**
+ * The mimetype used for Jupyter cell data.
+ */
+const JUPYTER_CELL_MIME = 'application/vnd.jupyter.cells';
 
 /**
  * A widget containing a Jupyter console.
@@ -120,13 +128,6 @@ export class CodeConsole extends Widget {
     // Insert the content and input panes into the widget.
     layout.addWidget(this._content);
     layout.addWidget(this._input);
-
-    // Set up the foreign iopub handler.
-    this._foreignHandler = new ForeignHandler({
-      session: this.session,
-      parent: this,
-      cellFactory: () => this._createCodeCell()
-    });
 
     this._history = new ConsoleHistory({
       session: this.session
@@ -199,16 +200,24 @@ export class CodeConsole extends Widget {
   /**
    * Add a new cell to the content panel.
    *
-   * @param cell - The cell widget being added to the content panel.
+   * @param cell - The code cell widget being added to the content panel.
+   *
+   * @param msgId - The optional execution message id for the cell.
    *
    * #### Notes
-   * This method is meant for use by outside classes that want to inject content
-   * into a console. It is distinct from the `inject` method in that it requires
-   * rendered code cell widgets and does not execute them.
+   * This method is meant for use by outside classes that want to add cells to a
+   * console. It is distinct from the `inject` method in that it requires
+   * rendered code cell widgets and does not execute them (though it can store
+   * the execution message id).
    */
-  addCell(cell: Cell) {
+  addCell(cell: CodeCell, msgId?: string) {
+    cell.addClass(CONSOLE_CELL_CLASS);
     this._content.addWidget(cell);
     this._cells.push(cell);
+    if (msgId) {
+      this._msgIds.set(msgId, cell);
+      this._msgIdCells.set(cell, msgId);
+    }
     cell.disposed.connect(
       this._onCellDisposed,
       this
@@ -216,6 +225,9 @@ export class CodeConsole extends Widget {
     this.update();
   }
 
+  /**
+   * Add a banner cell.
+   */
   addBanner() {
     if (this._banner) {
       // An old banner just becomes a normal cell now.
@@ -250,6 +262,18 @@ export class CodeConsole extends Widget {
   }
 
   /**
+   * Create a new cell with the built-in factory.
+   */
+  createCodeCell(): CodeCell {
+    let factory = this.contentFactory;
+    let options = this._createCodeCellOptions();
+    let cell = factory.createCodeCell(options);
+    cell.readOnly = true;
+    cell.model.mimeType = this._mimetype;
+    return cell;
+  }
+
+  /**
    * Dispose of the resources held by the widget.
    */
   dispose() {
@@ -258,21 +282,11 @@ export class CodeConsole extends Widget {
       return;
     }
     this._cells.clear();
+    this._msgIdCells = null;
+    this._msgIds = null;
     this._history.dispose();
-    this._foreignHandler.dispose();
 
     super.dispose();
-  }
-
-  /**
-   * Set whether the foreignHandler is able to inject foreign cells into a
-   * console.
-   */
-  get showAllActivity(): boolean {
-    return this._foreignHandler.enabled;
-  }
-  set showAllActivity(value: boolean) {
-    this._foreignHandler.enabled = value;
   }
 
   /**
@@ -320,6 +334,15 @@ export class CodeConsole extends Widget {
   }
 
   /**
+   * Get a cell given a message id.
+   *
+   * @param msgId - The message id.
+   */
+  getCell(msgId: string): CodeCell | undefined {
+    return this._msgIds.get(msgId);
+  }
+
+  /**
    * Inject arbitrary code for the console to execute immediately.
    *
    * @param code - The code contents of the cell being injected.
@@ -327,7 +350,7 @@ export class CodeConsole extends Widget {
    * @returns A promise that indicates when the injected cell's execution ends.
    */
   inject(code: string): Promise<void> {
-    let cell = this._createCodeCell();
+    let cell = this.createCodeCell();
     cell.model.value.text = code;
     this.addCell(cell);
     return this._execute(cell);
@@ -367,9 +390,121 @@ export class CodeConsole extends Widget {
   }
 
   /**
+   * Handle `mousedown` events for the widget.
+   */
+  private _evtMouseDown(event: MouseEvent): void {
+    const { button, shiftKey } = event;
+
+    // We only handle main or secondary button actions.
+    if (
+      !(button === 0 || button === 2) ||
+      // Shift right-click gives the browser default behavior.
+      (shiftKey && button === 2)
+    ) {
+      return;
+    }
+
+    let target = event.target as HTMLElement;
+    let cellFilter = (node: HTMLElement) =>
+      node.classList.contains(CONSOLE_CELL_CLASS);
+    let cellIndex = CellDragUtils.findCell(target, this._cells, cellFilter);
+
+    if (cellIndex === -1) {
+      // `event.target` sometimes gives an orphaned node in
+      // Firefox 57, which can have `null` anywhere in its parent line. If we fail
+      // to find a cell using `event.target`, try again using a target
+      // reconstructed from the position of the click event.
+      target = document.elementFromPoint(
+        event.clientX,
+        event.clientY
+      ) as HTMLElement;
+      cellIndex = CellDragUtils.findCell(target, this._cells, cellFilter);
+    }
+
+    if (cellIndex === -1) {
+      return;
+    }
+
+    const cell = this._cells.get(cellIndex);
+
+    let targetArea: CellDragUtils.ICellTargetArea = CellDragUtils.detectTargetArea(
+      cell,
+      event.target as HTMLElement
+    );
+
+    if (targetArea === 'prompt') {
+      this._dragData = {
+        pressX: event.clientX,
+        pressY: event.clientY,
+        index: cellIndex
+      };
+
+      this._focusedCell = cell;
+
+      document.addEventListener('mouseup', this, true);
+      document.addEventListener('mousemove', this, true);
+      event.preventDefault();
+    }
+  }
+
+  /**
+   * Handle `mousemove` event of widget
+   */
+  private _evtMouseMove(event: MouseEvent) {
+    const data = this._dragData;
+    if (
+      CellDragUtils.shouldStartDrag(
+        data.pressX,
+        data.pressY,
+        event.clientX,
+        event.clientY
+      )
+    ) {
+      this._startDrag(data.index, event.clientX, event.clientY);
+    }
+  }
+
+  /**
+   * Start a drag event
+   */
+  private _startDrag(index: number, clientX: number, clientY: number) {
+    const cellModel = this._focusedCell.model as ICodeCellModel;
+    let selected: nbformat.ICell[] = [cellModel.toJSON()];
+
+    const dragImage = CellDragUtils.createCellDragImage(
+      this._focusedCell,
+      selected
+    );
+
+    this._drag = new Drag({
+      mimeData: new MimeData(),
+      dragImage,
+      proposedAction: 'copy',
+      supportedActions: 'copy',
+      source: this
+    });
+
+    this._drag.mimeData.setData(JUPYTER_CELL_MIME, selected);
+    const textContent = cellModel.value.text;
+    this._drag.mimeData.setData('text/plain', textContent);
+
+    this._focusedCell = null;
+
+    document.removeEventListener('mousemove', this, true);
+    document.removeEventListener('mouseup', this, true);
+    this._drag.start(clientX, clientY).then(() => {
+      if (this.isDisposed) {
+        return;
+      }
+      this._drag = null;
+      this._dragData = null;
+    });
+  }
+
+  /**
    * Handle the DOM events for the widget.
    *
-   * @param event - The DOM event sent to the widget.
+   * @param event -The DOM event sent to the widget.
    *
    * #### Notes
    * This method implements the DOM `EventListener` interface and is
@@ -381,8 +516,14 @@ export class CodeConsole extends Widget {
       case 'keydown':
         this._evtKeyDown(event as KeyboardEvent);
         break;
-      case 'click':
-        this._evtClick(event as MouseEvent);
+      case 'mousedown':
+        this._evtMouseDown(event as MouseEvent);
+        break;
+      case 'mousemove':
+        this._evtMouseMove(event as MouseEvent);
+        break;
+      case 'mouseup':
+        this._evtMouseUp(event as MouseEvent);
         break;
       default:
         break;
@@ -396,6 +537,7 @@ export class CodeConsole extends Widget {
     let node = this.node;
     node.addEventListener('keydown', this, true);
     node.addEventListener('click', this);
+    node.addEventListener('mousedown', this);
     // Create a prompt if necessary.
     if (!this.promptCell) {
       this.newPromptCell();
@@ -480,9 +622,9 @@ export class CodeConsole extends Widget {
   }
 
   /**
-   * Handle the `'click'` event for the widget.
+   * Handle the `'mouseup'` event for the widget.
    */
-  private _evtClick(event: MouseEvent): void {
+  private _evtMouseUp(event: MouseEvent): void {
     if (
       this.promptCell &&
       this.promptCell.node.contains(event.target as HTMLElement)
@@ -558,19 +700,6 @@ export class CodeConsole extends Widget {
   }
 
   /**
-   * Create a new foreign cell.
-   */
-  private _createCodeCell(): CodeCell {
-    let factory = this.contentFactory;
-    let options = this._createCodeCellOptions();
-    let cell = factory.createCodeCell(options);
-    cell.readOnly = true;
-    cell.model.mimeType = this._mimetype;
-    cell.addClass(FOREIGN_CELL_CLASS);
-    return cell;
-  }
-
-  /**
    * Create the options used to initialize a code cell widget.
    */
   private _createCodeCellOptions(): CodeCell.IOptions {
@@ -587,6 +716,11 @@ export class CodeConsole extends Widget {
   private _onCellDisposed(sender: Cell, args: void): void {
     if (!this.isDisposed) {
       this._cells.removeValue(sender);
+      const msgId = this._msgIdCells.get(sender as CodeCell);
+      if (msgId) {
+        this._msgIdCells.delete(sender as CodeCell);
+        this._msgIds.delete(msgId);
+      }
     }
   }
 
@@ -678,12 +812,16 @@ export class CodeConsole extends Widget {
   private _cells: IObservableList<Cell>;
   private _content: Panel;
   private _executed = new Signal<this, Date>(this);
-  private _foreignHandler: ForeignHandler;
   private _history: IConsoleHistory;
   private _input: Panel;
   private _mimetype = 'text/x-ipython';
   private _mimeTypeService: IEditorMimeTypeService;
+  private _msgIds = new Map<string, CodeCell>();
+  private _msgIdCells = new Map<CodeCell, string>();
   private _promptCellCreated = new Signal<this, CodeCell>(this);
+  private _dragData: { pressX: number; pressY: number; index: number } = null;
+  private _drag: Drag = null;
+  private _focusedCell: Cell = null;
 }
 
 /**

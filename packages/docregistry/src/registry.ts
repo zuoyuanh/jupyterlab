@@ -960,6 +960,14 @@ export namespace DocumentRegistry {
      * Whether to activate the widget.  Defaults to `true`.
      */
     activate?: boolean;
+
+    /**
+     * The rank order of the widget among its siblings.
+     *
+     * #### Notes
+     * This field may be used or ignored depending on shell implementation.
+     */
+    rank?: number;
   }
 
   /**
@@ -1303,6 +1311,11 @@ export interface IDocumentWidget<
    * The toolbar for the widget.
    */
   readonly toolbar: Toolbar<Widget>;
+
+  /**
+   * Set URI fragment identifier.
+   */
+  setFragment(fragment: string): void;
 }
 
 /**

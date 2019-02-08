@@ -71,8 +71,12 @@
   justify-content: space-evenly;
 }
 
+.jp-FileBrowser-toolbar.jp-Toolbar .jp-Toolbar-item {
+  flex: 1;
+}
+
 .jp-FileBrowser-toolbar.jp-Toolbar .jp-ToolbarButtonComponent {
-  padding: 0px 16px;
+  width: 100%;
 }
 
 /*-----------------------------------------------------------------------------
@@ -162,6 +166,7 @@
 .jp-DirListing.jp-mod-native-drop .jp-DirListing-content {
   outline: 5px dashed rgba(128, 128, 128, 0.5);
   outline-offset: -10px;
+  cursor: copy;
 }
 
 .jp-DirListing-item {

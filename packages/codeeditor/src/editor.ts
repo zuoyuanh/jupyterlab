@@ -285,6 +285,7 @@ export namespace CodeEditor {
         return;
       }
       this._isDisposed = true;
+      this.value.text = '';
       Signal.clearData(this);
     }
 
@@ -637,6 +638,16 @@ export namespace CodeEditor {
      * The column where to break text line.
      */
     wordWrapColumn: number;
+
+    /**
+     * Column index at which rulers should be added.
+     */
+    rulers: Array<number>;
+
+    /**
+     * Wheter to allow code folding
+     */
+    codeFolding: boolean;
   }
 
   /**
@@ -653,7 +664,9 @@ export namespace CodeEditor {
     tabSize: 4,
     insertSpaces: true,
     matchBrackets: true,
-    autoClosingBrackets: true
+    autoClosingBrackets: true,
+    rulers: [],
+    codeFolding: false
   };
 
   /**

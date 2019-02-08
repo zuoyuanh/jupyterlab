@@ -34,12 +34,7 @@ export function createInspector(
       })
   });
 
-  inspector.add({
-    className: 'jp-SettingsDebug',
-    name: 'Debug',
-    rank: 0,
-    type: 'hints'
-  });
+  inspector.addClass('jp-SettingsDebug');
   inspector.source = handler;
   handler.editor = editor.source;
 
@@ -90,12 +85,14 @@ class InspectorConnector extends DataConnector<
 
   private _validate(raw: string): ISchemaValidator.IError[] | null {
     const editor = this._editor;
+    if (!editor.settings) {
+      return null;
+    }
+    const { id, schema, version } = editor.settings;
     const data = { composite: {}, user: {} };
-    const id = editor.settings.plugin;
-    const schema = editor.settings.schema;
     const validator = editor.registry.validator;
 
-    return validator.validateData({ data, id, raw, schema }, false);
+    return validator.validateData({ data, id, raw, schema, version }, false);
   }
 
   private _current = 0;

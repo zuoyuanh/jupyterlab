@@ -22,13 +22,14 @@ describe('@jupyterlab/mainmenu', () => {
     let commands: CommandRegistry;
     let menu: EditMenu;
     let tracker: InstanceTracker<Wodget>;
-    const wodget = new Wodget();
+    let wodget: Wodget;
 
     beforeAll(() => {
       commands = new CommandRegistry();
     });
 
     beforeEach(() => {
+      wodget = new Wodget();
       menu = new EditMenu({ commands });
       tracker = new InstanceTracker<Wodget>({ namespace: 'wodget' });
       tracker.add(wodget);
@@ -94,18 +95,12 @@ describe('@jupyterlab/mainmenu', () => {
       it('should allow setting of an IFindReplacer', () => {
         const finder: IEditMenu.IFindReplacer<Wodget> = {
           tracker,
-          find: widget => {
-            widget.state = 'find';
-            return;
-          },
           findAndReplace: widget => {
             widget.state = 'findAndReplace';
             return;
           }
         };
         menu.findReplacers.add(finder);
-        delegateExecute(wodget, menu.findReplacers, 'find');
-        expect(wodget.state).to.equal('find');
         delegateExecute(wodget, menu.findReplacers, 'findAndReplace');
         expect(wodget.state).to.equal('findAndReplace');
       });

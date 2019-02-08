@@ -3,7 +3,10 @@
 | Distributed under the terms of the Modified BSD License.
 |----------------------------------------------------------------------------*/
 
-import { JupyterLab, JupyterLabPlugin } from '@jupyterlab/application';
+import {
+  JupyterFrontEnd,
+  JupyterFrontEndPlugin
+} from '@jupyterlab/application';
 
 import { IDocumentManager } from '@jupyterlab/docmanager';
 
@@ -21,7 +24,7 @@ namespace CommandIDs {
 /**
  * A plugin providing a rendermime registry.
  */
-const plugin: JupyterLabPlugin<RenderMimeRegistry> = {
+const plugin: JupyterFrontEndPlugin<RenderMimeRegistry> = {
   id: '@jupyterlab/rendermime-extension:plugin',
   requires: [IDocumentManager],
   optional: [ILatexTypesetter],
@@ -39,7 +42,7 @@ export default plugin;
  * Activate the rendermine plugin.
  */
 function activate(
-  app: JupyterLab,
+  app: JupyterFrontEnd,
   docManager: IDocumentManager,
   latexTypesetter: ILatexTypesetter | null
 ) {
@@ -61,24 +64,11 @@ function activate(
             path
           );
           const widget = docManager.openOrReveal(path, factory.name);
-          if (!widget) {
-            return;
+
+          // Handle the hash if one has been provided.
+          if (widget && id) {
+            widget.setFragment(id);
           }
-          return widget.revealed.then(() => {
-            // Once the widget is ready, attempt to scroll the hash into view
-            // if one has been provided.
-            if (!id) {
-              return;
-            }
-            // Look for the an element with the hash id in the document.
-            // This id is set automatically for headers tags when
-            // we render markdown.
-            const element = widget.node.querySelector(id);
-            if (element) {
-              element.scrollIntoView();
-            }
-            return;
-          });
         });
     }
   });

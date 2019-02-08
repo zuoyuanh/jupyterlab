@@ -51,6 +51,10 @@ describe('outputarea/widget', () => {
   let widget: LogOutputArea;
   let model: OutputAreaModel;
 
+  beforeAll(async () => {
+    jest.setTimeout(60000);
+  });
+
   beforeEach(() => {
     model = new OutputAreaModel({
       values: NBTestUtils.DEFAULT_OUTPUTS,
@@ -266,6 +270,7 @@ describe('outputarea/widget', () => {
       describe('#createStdin()', () => {
         it('should create a stdin widget', async () => {
           const kernel = await Kernel.startNew();
+          await kernel.ready;
           const factory = new OutputArea.ContentFactory();
           const future = kernel.requestExecute({ code: CODE });
           const options = {

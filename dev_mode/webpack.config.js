@@ -9,6 +9,7 @@ var Handlebars = require('handlebars');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 var webpack = require('webpack');
 var DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+var Visualizer = require('webpack-visualizer-plugin');
 
 var Build = require('@jupyterlab/buildutils').Build;
 var package_data = require('./package.json');
@@ -79,11 +80,11 @@ function maybeSync(localPath, name, rest) {
  * A WebPack Plugin that copies the assets to the static directory and
  * fixes the output of the HTMLWebpackPlugin
  */
-function JupyterLabPlugin() {}
+function JupyterFrontEndPlugin() {}
 
-JupyterLabPlugin.prototype.apply = function(compiler) {
+JupyterFrontEndPlugin.prototype.apply = function(compiler) {
   compiler.hooks.afterEmit.tap(
-    'JupyterLabPlugin',
+    'JupyterFrontEndPlugin',
     function() {
       // Fix the template output.
       var indexPath = path.join(buildDir, 'index.html');
@@ -108,7 +109,29 @@ JupyterLabPlugin.prototype.apply = function(compiler) {
   );
 };
 
-JupyterLabPlugin.prototype._first = true;
+JupyterFrontEndPlugin.prototype._first = true;
+
+const plugins = [
+  new DuplicatePackageCheckerPlugin({
+    verbose: true,
+    exclude(instance) {
+      // ignore known duplicates
+      return ['domelementtype', 'hash-base', 'inherits'].includes(
+        instance.name
+      );
+    }
+  }),
+  new HtmlWebpackPlugin({
+    template: path.join('templates', 'template.html'),
+    title: jlab.name || 'JupyterLab'
+  }),
+  new webpack.HashedModuleIdsPlugin(),
+  new JupyterFrontEndPlugin({})
+];
+
+if (process.argv.includes('--analyze')) {
+  plugins.push(new Visualizer());
+}
 
 module.exports = [
   {
@@ -128,9 +151,6 @@ module.exports = [
     },
     module: {
       rules: [
-        { test: /^JUPYTERLAB_RAW_LOADER_/, use: 'raw-loader' },
-        { test: /^JUPYTERLAB_URL_LOADER_/, use: 'url-loader?limit=10000' },
-        { test: /^JUPYTERLAB_FILE_LOADER_/, use: 'file-loader' },
         { test: /\.css$/, use: ['style-loader', 'css-loader'] },
         { test: /\.md$/, use: 'raw-loader' },
         { test: /\.txt$/, use: 'raw-loader' },
@@ -208,22 +228,10 @@ module.exports = [
     },
     bail: true,
     devtool: 'source-map',
-    plugins: [
-      new DuplicatePackageCheckerPlugin({
-        verbose: true,
-        exclude(instance) {
-          // ignore known duplicates
-          return ['domelementtype', 'hash-base', 'inherits'].includes(
-            instance.name
-          );
-        }
-      }),
-      new HtmlWebpackPlugin({
-        template: path.join('templates', 'template.html'),
-        title: jlab.name || 'JupyterLab'
-      }),
-      new webpack.HashedModuleIdsPlugin(),
-      new JupyterLabPlugin({})
-    ]
+    externals: ['node-fetch', 'ws'],
+    plugins,
+    stats: {
+      chunkModules: true
+    }
   }
 ].concat(extraConfig);
