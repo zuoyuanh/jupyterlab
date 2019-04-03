@@ -10,7 +10,6 @@ import {
 import { ISettingRegistry } from '@jupyterlab/coreutils';
 
 import {
-  // ArrayExt,
   ArrayIterator,
   IIterator,
   map,
@@ -46,12 +45,6 @@ const LAUNCHER_CLASS = 'jp-Launcher';
  * The known categories of launcher items and their default ordering.
  */
 const KNOWN_CATEGORIES = ['Kernels', 'Other'];
-
-/**
- * These launcher item categories are known to have kernels, so the kernel icons
- * are used.
- */
-// const KERNEL_CATEGORIES = ['Notebook', 'Console'];
 
 /* tslint:disable */
 /**
