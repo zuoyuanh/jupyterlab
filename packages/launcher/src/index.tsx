@@ -669,10 +669,9 @@ function Card(
   launcherCallback: (widget: Widget) => void
 ): React.ReactElement<any> {
   // Get some properties of the command
-  const command = item.commands[item.options[0]];
   const args = { ...item.args, cwd: launcher.cwd };
-  const caption = commands.caption(command, args);
-  const label = commands.label(command, args);
+  const caption = Private.getCaption(args, item, commands);
+  const label = Private.getLabel(args, item, commands);
   const title = caption || label;
 
   // Build the onclick handler.
@@ -749,19 +748,25 @@ function Card(
       key={Private.keyProperty.get(item)}
     >
       <div className="jp-LauncherCard-icon">
-        {item.kernelIconUrl && kernel && (
-          <img src={item.kernelIconUrl} className="jp-Launcher-kernelIcon" />
-        )}
-        {!item.kernelIconUrl && !kernel && (
-          <div
-            className={`${commands.iconClass(command, args)} jp-Launcher-icon`}
-          />
-        )}
-        {!item.kernelIconUrl && kernel && (
-          <div className="jp-LauncherCard-noKernelIcon">
-            {label[0].toUpperCase()}
-          </div>
-        )}
+        {item.kernelIconUrl &&
+          kernel && (
+            <img src={item.kernelIconUrl} className="jp-Launcher-kernelIcon" />
+          )}
+        {!item.kernelIconUrl &&
+          !kernel && (
+            <div
+              className={`${commands.iconClass(
+                item.commands[item.options[0]],
+                args
+              )} jp-Launcher-icon`}
+            />
+          )}
+        {!item.kernelIconUrl &&
+          kernel && (
+            <div className="jp-LauncherCard-noKernelIcon">
+              {label[0].toUpperCase()}
+            </div>
+          )}
       </div>
       <div className="jp-LauncherCard-label" title={label}>
         {label}
@@ -790,6 +795,22 @@ namespace Private {
     name: 'key',
     create: () => id++
   });
+
+  export function getLabel(
+    args: any,
+    item: ILauncher.IGroupedItemOptions,
+    commands: CommandRegistry
+  ): string {
+    return commands.label(item.commands[item.options[0]], args);
+  }
+
+  export function getCaption(
+    args: any,
+    item: ILauncher.IGroupedItemOptions,
+    commands: CommandRegistry
+  ): string {
+    return commands.caption(item.commands[item.options[0]], args);
+  }
 
   export function getDisplayName(
     item: ILauncher.IGroupedItemOptions,
