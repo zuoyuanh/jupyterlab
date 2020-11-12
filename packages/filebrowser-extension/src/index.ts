@@ -290,7 +290,12 @@ function activateBrowser(
   // If the layout is a fresh session without saved data, open file browser.
   void labShell.restored.then(layout => {
     if (layout.fresh) {
-      void commands.execute(CommandIDs.showBrowser, void 0);
+      void commands.execute(CommandIDs.showBrowser, {
+        actionMetadata: {
+          from: '@jupyterlab/filebrowser-extension:factory',
+          how: 'programmatic'
+        }
+      });
     }
   });
 
@@ -474,7 +479,13 @@ function addCommands(
       } catch (reason) {
         console.warn(`${CommandIDs.goToPath} failed to go to: ${path}`, reason);
       }
-      return commands.execute(CommandIDs.showBrowser, { path });
+      return commands.execute(CommandIDs.showBrowser, {
+        path,
+        actionMetadata: {
+          from: '@jupyterlab/filebrowser-extension:factory',
+          how: 'programmatic'
+        }
+      });
     }
   });
 
@@ -507,11 +518,23 @@ function addCommands(
         if (trailingSlash && item.type !== 'directory') {
           throw new Error(`Path ${path}/ is not a directory`);
         }
-        await commands.execute(CommandIDs.goToPath, { path });
+        await commands.execute(CommandIDs.goToPath, {
+          path,
+          actionMetadata: {
+            from: '@jupyterlab/filebrowser-extension:factory',
+            how: 'programmatic'
+          }
+        });
         if (item.type === 'directory') {
           return;
         }
-        return commands.execute('docmanager:open', { path });
+        return commands.execute('docmanager:open', {
+          path,
+          actionMetadata: {
+            from: '@jupyterlab/filebrowser-extension:factory',
+            how: 'programmatic'
+          }
+        });
       } catch (reason) {
         if (reason.response && reason.response.status === 404) {
           reason.message = `Could not find path: ${path}`;
@@ -548,7 +571,11 @@ function addCommands(
 
             return commands.execute('docmanager:open', {
               factory: factory,
-              path: item.path
+              path: item.path,
+              actionMetadata: {
+                from: '@jupyterlab/filebrowser-extension:factory',
+                how: 'programmatic'
+              }
             });
           })
         )
@@ -586,7 +613,11 @@ function addCommands(
         toArray(
           map(widget.selectedItems(), item => {
             return commands.execute('docmanager:open-browser-tab', {
-              path: item.path
+              path: item.path,
+              actionMetadata: {
+                from: '@jupyterlab/filebrowser-extension:factory',
+                how: 'programmatic'
+              }
             });
           })
         )
@@ -718,10 +749,20 @@ function addCommands(
   commands.addCommand(CommandIDs.toggleBrowser, {
     execute: () => {
       if (browser.isHidden) {
-        return commands.execute(CommandIDs.showBrowser, void 0);
+        return commands.execute(CommandIDs.showBrowser, {
+          actionMetadata: {
+            from: '@jupyterlab/filebrowser-extension:factory',
+            how: 'programmatic'
+          }
+        });
       }
 
-      return commands.execute(CommandIDs.hideBrowser, void 0);
+      return commands.execute(CommandIDs.hideBrowser, {
+        actionMetadata: {
+          from: '@jupyterlab/filebrowser-extension:factory',
+          how: 'programmatic'
+        }
+      });
     }
   });
 
@@ -937,7 +978,13 @@ namespace Private {
     const { model } = browser;
 
     return commands
-      .execute('launcher:create', { cwd: model.path })
+      .execute('launcher:create', {
+        cwd: model.path,
+        actionMetadata: {
+          from: '@jupyterlab/filebrowser-extension:factory',
+          how: 'click'
+        }
+      })
       .then((launcher: MainAreaWidget<Launcher>) => {
         model.pathChanged.connect(() => {
           launcher.content.cwd = model.path;

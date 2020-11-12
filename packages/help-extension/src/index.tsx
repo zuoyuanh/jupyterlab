@@ -272,7 +272,13 @@ function activate(
           isVisible: usesKernel,
           isEnabled: usesKernel,
           execute: () => {
-            return commands.execute(CommandIDs.open, link);
+            return commands.execute(CommandIDs.open, {
+              actionMetadata: {
+                from: '@jupyterlab/help-extension:plugin',
+                how: 'click'
+              },
+              link
+            });
           }
         });
         kernelGroup.push({ command: commandId });

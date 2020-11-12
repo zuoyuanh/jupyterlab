@@ -612,7 +612,13 @@ namespace Private {
     }
     const tooltip = commands.caption(id, args) || label || iconLabel;
     const onClick = () => {
-      void commands.execute(id, args);
+      void commands.execute(id, {
+        actionMetadata: {
+          from: TOOLBAR_CLASS,
+          how: 'click'
+        },
+        ...args
+      });
     };
     const enabled = commands.isEnabled(id, args);
     return { className, iconClassName, tooltip, onClick, enabled, label };

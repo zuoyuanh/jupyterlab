@@ -152,7 +152,12 @@ Would you like to restart it?`,
       });
       showingError = false;
       if (result.button.accept) {
-        await app.commands.execute(CommandIDs.restart);
+        await app.commands.execute(CommandIDs.restart, {
+          actionMetadata: {
+            from: '@jupyterlab/apputils-extension:connectionlost',
+            how: 'click'
+          }
+        });
       }
     };
     return onConnectionLost;

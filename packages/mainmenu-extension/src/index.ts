@@ -321,7 +321,12 @@ export function createFileMenu(
         )();
       }
       // If we have no delegate, call the top-level application close.
-      return app.commands.execute('application:close');
+      return app.commands.execute('application:close', {
+        actionMetadata: {
+          from: '@jupyterlab/mainmenu-extension:plugin',
+          how: 'programmatically'
+        }
+      });
     }
   });
 
@@ -753,7 +758,14 @@ export function createTabsMenu(
   commands.addCommand(CommandIDs.activatePreviouslyUsedTab, {
     label: 'Activate Previously Used Tab',
     isEnabled: () => !!previousId,
-    execute: () => commands.execute(CommandIDs.activateById, { id: previousId })
+    execute: () =>
+      commands.execute(CommandIDs.activateById, {
+        actionMetadata: {
+          from: '@jupyterlab/mainmenu-extension:plugin',
+          how: 'programmatically'
+        },
+        id: previousId
+      })
   });
 
   if (labShell) {

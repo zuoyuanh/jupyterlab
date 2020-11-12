@@ -210,7 +210,12 @@ const splash: JupyterFrontEndPlugin<ISplashScreen> = {
         dialog.dispose();
         dialog = null;
         if (result.button.accept && commands.hasCommand(CommandIDs.reset)) {
-          return commands.execute(CommandIDs.reset);
+          return commands.execute(CommandIDs.reset, {
+            actionMetadata: {
+              from: '@jupyterlab/apputils-extension:splash',
+              how: 'programmatic'
+            }
+          });
         }
 
         // Re-invoke the recovery timer in the next frame.

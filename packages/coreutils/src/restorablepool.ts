@@ -265,7 +265,13 @@ export class RestorablePool<
 
         // Execute the command and if it fails, delete the state restore data.
         return registry
-          .execute(command, args)
+          .execute(command, {
+            actionMetadata: {
+              from: 'restorable-pool',
+              how: 'programmatic'
+            },
+            ...args
+          })
           .catch(() => connector.remove(id));
       })
     );

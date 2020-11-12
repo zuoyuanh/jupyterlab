@@ -158,7 +158,13 @@ const consoles: JupyterFrontEndPlugin<void> = {
         const id = consoles.currentWidget && consoles.currentWidget.id;
 
         if (id) {
-          return app.commands.execute(CommandIDs.invoke, { id });
+          return app.commands.execute(CommandIDs.invoke, {
+            actionMetadata: {
+              from: '@jupyterlab/completer-extension:consoles',
+              how: 'programmatically'
+            },
+            id
+          });
         }
       }
     });
@@ -169,7 +175,13 @@ const consoles: JupyterFrontEndPlugin<void> = {
         const id = consoles.currentWidget && consoles.currentWidget.id;
 
         if (id) {
-          return app.commands.execute(CommandIDs.select, { id });
+          return app.commands.execute(CommandIDs.select, {
+            actionMetadata: {
+              from: '@jupyterlab/completer-extension:consoles',
+              how: 'programmatically'
+            },
+            id
+          });
         }
       }
     });
@@ -217,7 +229,13 @@ const notebooks: JupyterFrontEndPlugin<void> = {
       execute: () => {
         const panel = notebooks.currentWidget;
         if (panel && panel.content.activeCell.model.type === 'code') {
-          return app.commands.execute(CommandIDs.invoke, { id: panel.id });
+          return app.commands.execute(CommandIDs.invoke, {
+            actionMetadata: {
+              from: '@jupyterlab/completer-extension:notebooks',
+              how: 'programmatically'
+            },
+            id: panel.id
+          });
         }
       }
     });
@@ -228,7 +246,13 @@ const notebooks: JupyterFrontEndPlugin<void> = {
         const id = notebooks.currentWidget && notebooks.currentWidget.id;
 
         if (id) {
-          return app.commands.execute(CommandIDs.select, { id });
+          return app.commands.execute(CommandIDs.select, {
+            actionMetadata: {
+              from: '@jupyterlab/completer-extension:notebooks',
+              how: 'programmatically'
+            },
+            id
+          });
         }
       }
     });
@@ -334,7 +358,13 @@ const files: JupyterFrontEndPlugin<void> = {
           editorTracker.currentWidget && editorTracker.currentWidget.id;
 
         if (id) {
-          return app.commands.execute(CommandIDs.invoke, { id });
+          return app.commands.execute(CommandIDs.invoke, {
+            actionMetadata: {
+              from: '@jupyterlab/completer-extension:files',
+              how: 'programmatically'
+            },
+            id
+          });
         }
       }
     });
@@ -346,7 +376,13 @@ const files: JupyterFrontEndPlugin<void> = {
           editorTracker.currentWidget && editorTracker.currentWidget.id;
 
         if (id) {
-          return app.commands.execute(CommandIDs.select, { id });
+          return app.commands.execute(CommandIDs.select, {
+            actionMetadata: {
+              from: '@jupyterlab/completer-extension:files',
+              how: 'programmatically'
+            },
+            id
+          });
         }
       }
     });
