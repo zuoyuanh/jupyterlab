@@ -686,8 +686,20 @@ function addLabCommands(
       }
 
       // 'activate' is needed if this command is selected in the "open tabs" sidebar
-      await commands.execute('filebrowser:activate', { path: context.path });
-      await commands.execute('filebrowser:go-to-path', { path: context.path });
+      await commands.execute('filebrowser:activate', {
+        actionMetadata: {
+          from: pluginId,
+          how: 'contextmenu'
+        },
+        path: context.path
+      });
+      await commands.execute('filebrowser:go-to-path', {
+        actionMetadata: {
+          from: pluginId,
+          how: 'contextmenu'
+        },
+        path: context.path
+      });
     }
   });
 

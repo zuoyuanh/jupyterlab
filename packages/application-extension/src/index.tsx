@@ -281,10 +281,20 @@ const tree: JupyterFrontEndPlugin<void> = {
         router.navigate(url);
 
         try {
-          await commands.execute('filebrowser:open-path', { path });
+          await commands.execute('filebrowser:open-path', {
+            actionMetadata: {
+              from: '@jupyterlab/application-extension:tree',
+              how: 'programmatically'
+            },
+            path
+          });
 
           if (fileBrowserPath) {
             await commands.execute('filebrowser:open-path', {
+              actionMetadata: {
+                from: '@jupyterlab/application-extension:tree',
+                how: 'programmatically'
+              },
               path: fileBrowserPath
             });
           }
@@ -686,7 +696,13 @@ function addCommands(app: JupyterLab, palette: ICommandPalette): void {
         shell.mode === 'multiple-document'
           ? { mode: 'single-document' }
           : { mode: 'multiple-document' };
-      return app.commands.execute(CommandIDs.setMode, args);
+      return app.commands.execute(CommandIDs.setMode, {
+        actionMetadata: {
+          from: '@jupyterlab/application-extension:tree',
+          how: 'programmatically'
+        },
+        ...args
+      });
     }
   });
   palette.addItem({ command: CommandIDs.toggleMode, category });

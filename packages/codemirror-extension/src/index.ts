@@ -127,7 +127,12 @@ const id = commands.id;
  */
 function activateEditorServices(app: JupyterFrontEnd): IEditorServices {
   CodeMirror.prototype.save = () => {
-    void app.commands.execute('docmanager:save');
+    void app.commands.execute('docmanager:save', {
+      actionMetadata: {
+        from: '@jupyterlab/codemirror-extension:services',
+        how: 'programmatic'
+      }
+    });
   };
   return editorServices;
 }

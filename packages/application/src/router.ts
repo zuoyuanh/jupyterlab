@@ -159,7 +159,13 @@ export class Router implements IRouter {
 
       try {
         const request = this.current.request;
-        const result = await commands.execute(command, current);
+        const result = await commands.execute(command, {
+          actionMetadata: {
+            from: '@jupyterlab/application:Router',
+            how: 'programmatically'
+          },
+          current
+        });
         if (result === stop) {
           queue.length = 0;
           console.log(`Routing ${request} was short-circuited by ${command}`);

@@ -182,7 +182,13 @@ export class CommandLinker implements IDisposable {
         if (argsValue) {
           args = JSON.parse(argsValue);
         }
-        void this._commands.execute(command, args);
+        void this._commands.execute(command, {
+          actionMetadata: {
+            from: 'commandlinker',
+            how: 'programmatically'
+          },
+          ...args
+        });
         return;
       }
       target = target.parentElement;

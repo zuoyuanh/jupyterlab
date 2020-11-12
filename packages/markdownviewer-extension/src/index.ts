@@ -135,6 +135,10 @@ function activate(
         return;
       }
       return commands.execute('docmanager:open', {
+        actionMetadata: {
+          from: '@jupyterlab/markdownviewer-extension:plugin',
+          how: 'programmatically'
+        },
         path,
         factory: FACTORY,
         options: args['options']
